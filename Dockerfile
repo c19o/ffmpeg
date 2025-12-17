@@ -1,7 +1,8 @@
 FROM python:3.9-alpine
 
-# Install FFmpeg
-RUN apk add --no-cache ffmpeg
+# Install FFmpeg and Fonts
+# ttf-dejavu provides standard fonts needed for subtitles
+RUN apk add --no-cache ffmpeg ttf-dejavu
 
 WORKDIR /app
 
