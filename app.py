@@ -34,8 +34,11 @@ def render_video():
         # Handle optional subtitles
         subs_path = None
         if 'subtitles' in request.files:
+            logging.info(f"ID {run_id}: Subtitles file received.")
             subs_path = os.path.join(UPLOAD_FOLDER, f"{run_id}_subs.ass")
             request.files['subtitles'].save(subs_path)
+        else:
+            logging.info(f"ID {run_id}: No subtitles file received.")
         
         logging.info(f"Rendering video for ID: {run_id}")
 
@@ -48,7 +51,6 @@ def render_video():
         ]
 
         # Add subtitle filter if present
-        # Note: We use a complex filter to ensure compatibility
         if subs_path:
             # Escape the path for the filter
             escaped_subs_path = subs_path.replace(":", "\\:").replace("'", "\\'")
@@ -64,8 +66,14 @@ def render_video():
             output_path
         ])
         
+        # Log the full command
+        logging.info(f"ID {run_id}: Running command: {' '.join(cmd)}")
+        
         # Run and capture output
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        
+        # Log stderr (where ffmpeg prints stats and warnings)
+        logging.info(f"ID {run_id}: FFmpeg Output:\n{result.stderr}")
         
         # 4. Return the video file
         return send_file(output_path, mimetype='video/mp4', as_attachment=True, download_name=f"video_{run_id}.mp4")
