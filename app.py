@@ -31,15 +31,30 @@ def render_video():
         image.save(img_path)
         audio.save(audio_path)
         
+        # Handle optional subtitles
+        subs_path = None
+        if 'subtitles' in request.files:
+            subs_path = os.path.join(UPLOAD_FOLDER, f"{run_id}_subs.ass")
+            request.files['subtitles'].save(subs_path)
+        
         logging.info(f"Rendering video for ID: {run_id}")
 
         # 3. Run FFmpeg
-        # Command: Loop image, add audio, codec h264, stop when audio ends
         cmd = [
             'ffmpeg', '-y', 
             '-loop', '1', 
             '-i', img_path, 
-            '-i', audio_path,
+            '-i', audio_path
+        ]
+
+        # Add subtitle filter if present
+        # Note: We use a complex filter to ensure compatibility
+        if subs_path:
+            # Escape the path for the filter
+            escaped_subs_path = subs_path.replace(":", "\\:").replace("'", "\\'")
+            cmd.extend(['-vf', f"subtitles='{escaped_subs_path}'"])
+
+        cmd.extend([
             '-c:v', 'libx264', 
             '-tune', 'stillimage', 
             '-c:a', 'aac', 
@@ -47,9 +62,9 @@ def render_video():
             '-pix_fmt', 'yuv420p', 
             '-shortest', 
             output_path
-        ]
+        ])
         
-        # Run and capture output for debugging if it fails
+        # Run and capture output
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         
         # 4. Return the video file
@@ -66,10 +81,7 @@ def render_video():
         try:
             if 'img_path' in locals() and os.path.exists(img_path): os.remove(img_path)
             if 'audio_path' in locals() and os.path.exists(audio_path): os.remove(audio_path)
-            # We don't delete output_path immediately because send_file needs it. 
-            # In a real prod env, you'd use a background task or cache cleaner. 
-            # For this simple container, allowing /tmp to fill up until restart is usually acceptable for low volume.
-            pass
+            if 'subs_path' in locals() and subs_path and os.path.exists(subs_path): os.remove(subs_path)
         except Exception as cleanup_error:
             logging.warning(f"Cleanup failed: {cleanup_error}")
 
